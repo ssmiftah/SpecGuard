@@ -1,0 +1,39 @@
+# Test hierarchical retrieval + code embeddings on CMAC (4 modules)
+# Force RAG by setting context_threshold to 0 (disable context injection)
+
+design:
+  rtl_dir: "./nvdla_cmac_test/rtl"
+  top_file: "NV_NVDLA_CMAC_CORE_MAC_mul.v"
+  top_module: "NV_NVDLA_CMAC_CORE_MAC_mul"
+  docs_dir: "./nvdla_cmac_test/docs"
+
+model:
+  # ast_only=true so the LLM is not called; backend values are just
+  # placeholders for consistency with non-ast_only configs.
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 2048
+
+retrieval:
+  rtl_embedding_model: "jinaai/jina-embeddings-v2-base-code"
+  doc_embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  use_hierarchical: true
+  context_threshold: 0
+  force_rebuild: true
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+
+agent:
+  use_ast_assertions: true
+  ast_only: true
+  use_rtl_facts: true
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+output:
+  sva_file: "./nvdla_cmac_test/hierarchical_test_sva.sv"
+  log_file: "./nvdla_cmac_test/hierarchical_test_log.txt"
+  lint_report: "./nvdla_cmac_test/hierarchical_test_lint.json"

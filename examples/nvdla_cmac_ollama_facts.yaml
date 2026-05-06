@@ -1,0 +1,66 @@
+# CMAC Multiplier — Stage 2 A/B test config
+# AST + LLM with RTL facts injected into the system prompt, served by Ollama.
+#
+# Prerequisites:
+#   1. Install Ollama:    curl -fsSL https://ollama.com/install.sh | sh
+#   2. Pull the model:    ollama pull qwen3:8b
+#   3. Set context size:  the default num_ctx (2048) is too small. Either
+#                         create a Modelfile with PARAMETER num_ctx 32768
+#                         and `ollama create qwen3:8b-32k -f Modelfile`,
+#                         or pass num_ctx in the request options.
+#   4. Server starts automatically on port 11434.
+#
+# A/B test recipe:
+#   - First run with use_rtl_facts: false  → baseline output
+#   - Then  run with use_rtl_facts: true   → augmented output
+#   - Compare:
+#       * Number of LLM-generated assertions before/after post-processing
+#       * Number of post-processor removals (lint_failures.json)
+#       * Final correctness rate (manual review or mutation testing)
+#       * Runtime (Ollama prefix-cache should make batch 2+ much faster)
+
+design:
+  rtl_dir: "./nvdla_cmac_test/rtl"
+  top_file: "NV_NVDLA_CMAC_CORE_MAC_mul.v"
+  top_module: "NV_NVDLA_CMAC_CORE_MAC_mul"
+  docs_dir: "./nvdla_cmac_test/docs"
+
+model:
+  backend: "openai"            # Ollama exposes an OpenAI-compatible API
+  id: "qwen3:14b-32k"          # Ollama model tag, NOT the HuggingFace ID
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"            # ignored by Ollama but required by openai SDK
+  temperature: 0.1
+  max_new_tokens: 2048
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  # Stage 2 — RTL facts prompt augmentation
+  # Toggle this between false and true to run the A/B comparison.
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1000
+  rtl_facts_hard_budget: 1500
+
+  # Stage 3 — module-scoped facts
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  # Hallucination knowledgebase (logging is always-on; this flag controls
+  # whether the accumulated denylist is injected into the prompt).
+  use_hallucination_denylist: false
+  hallucination_denylist_top_n: 5
+  hallucination_denylist_dir: "indices/hallucinations"
+
+output:
+  sva_file: "./nvdla_cmac_test/cmac_ollama_facts_sva.sv"
+  log_file: "./nvdla_cmac_test/cmac_ollama_facts_log.txt"
+  lint_report: "./nvdla_cmac_test/cmac_ollama_facts_lint.json"

@@ -1,0 +1,37 @@
+# NVDLA CMACFULL — Naive baseline (single-prompt LLM)
+# Paired with nvdla_cmacfull_full.yaml for cost comparison.
+
+design:
+  rtl_dir: "./nvdla_cmacfull_test/rtl"
+  top_file: "NV_NVDLA_cmac.v"
+  top_module: "NV_NVDLA_cmac"
+  docs_dir: "./nvdla_cmacfull_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 2048
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  naive_baseline: true
+  use_ast_assertions: false
+  ast_only: false
+  use_dataflow_check: false
+  use_rtl_facts: false
+  module_facts_mode: "off"
+  allow_pyslang_warnings: true
+  use_hallucination_denylist: false
+
+output:
+  sva_file: "./nvdla_cmacfull_test/cmacfull_baseline_naive_sva.sv"
+  log_file: "./nvdla_cmacfull_test/cmacfull_baseline_naive_log.txt"
+  lint_report: "./nvdla_cmacfull_test/cmacfull_baseline_naive_lint.json"

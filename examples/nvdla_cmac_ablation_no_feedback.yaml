@@ -1,0 +1,45 @@
+# NVDLA CMAC — Ablation A5: Remove selective feedback gating (no repair)
+# Both the deterministic Phase 1 transforms AND the lint feedback loop
+# are disabled. Failed assertions are simply dropped. Should reduce
+# tokens (no refinement calls) at the cost of ACR (more drops).
+
+design:
+  rtl_dir: "./nvdla_cmac_test/rtl"
+  top_file: "NV_NVDLA_CMAC_CORE_MAC_mul.v"
+  top_module: "NV_NVDLA_CMAC_CORE_MAC_mul"
+  docs_dir: "./nvdla_cmac_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 2048
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1000
+  rtl_facts_hard_budget: 1500
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  enable_deterministic_repair: false   # <-- ablation knob
+  max_refinement_iterations: 0         # <-- ablation knob (no LLM repair)
+
+  use_hallucination_denylist: false
+
+output:
+  sva_file: "./nvdla_cmac_test/cmac_ablation_no_feedback_sva.sv"
+  log_file: "./nvdla_cmac_test/cmac_ablation_no_feedback_log.txt"
+  lint_report: "./nvdla_cmac_test/cmac_ablation_no_feedback_lint.json"

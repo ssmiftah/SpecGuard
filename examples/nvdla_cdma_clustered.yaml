@@ -1,0 +1,69 @@
+# NVDLA CDMA — full + clustering enabled
+# Identical to nvdla_cdma_full.yaml except:
+#   - agent.ast_use_clustering: true             (new)
+#   - output paths use *_clustered_* prefix       (avoid collision)
+#
+# This run validates two new mechanisms together:
+#   1. Wrapper-detection fallback: cdma's top_file is NV_NVDLA_cdma.v
+#      which is a structural wrapper with 0 behavioural patterns. The
+#      fallback re-scans the full rtl_dir and recovers ~5,907 patterns.
+#   2. Cluster-and-compact: the recovered patterns are clustered by
+#      template and packed where possible (seq_reset value-clustering
+#      collapses ~745 reset-to-zero signals into ONE assertion).
+#
+# Expected outcome (vs the un-clustered cdma run that produced 8 final
+# assertions for ~250K tokens):
+#   - thousands more AST patterns extracted
+#   - ast_skip_trivial_internal + clustering reduce LLM-bound units
+#     to a manageable count
+#   - LLM batches measurable for cost projection across the matrix
+
+design:
+  rtl_dir: "./nvdla_cdma_test/rtl"
+  top_file: "NV_NVDLA_cdma.v"
+  top_module: "NV_NVDLA_cdma"
+  docs_dir: "./nvdla_cdma_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 8192
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+  allow_pyslang_warnings: true
+
+  # NEW — enable clustering + value-level seq_reset packing.
+  ast_use_clustering: true
+  ast_enable_compaction: true
+  ast_enable_value_clustering: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 2500
+  rtl_facts_hard_budget: 4000
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+  enable_deterministic_repair: true
+
+  use_hallucination_denylist: false
+
+security:
+  pass_enabled: true
+  threat_model: "./nvdla_cdma_test/docs/security_threats.md"
+  max_scenarios: 0
+
+output:
+  sva_file: "./nvdla_cdma_test/cdma_clustered_sva.sv"
+  log_file: "./nvdla_cdma_test/cdma_clustered_log.txt"
+  lint_report: "./nvdla_cdma_test/cdma_clustered_lint.json"
