@@ -1,0 +1,52 @@
+# NVDLA CACC — LLM test with memory-conservative settings
+#
+# Key differences from previous CACC configs:
+#   - rag_encoder_batch_size: 8  (was 64) — avoids embedder OOM
+#   - rtl_max_chunk_chars: 1500 (was 2000) — smaller attention matrices
+#
+# Prerequisites: Ollama with qwen3:14b-32k running. Close Firefox/other
+# GPU consumers before running — need ~22 GB free VRAM.
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 4096
+
+retrieval:
+  # Avoid encoder OOM on dense RTL chunks
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  # CACC has 14 MissingTimeScale and 4 PortDoesNotExist warnings that don't
+  # affect structure extraction (verified by successful AST-only run).
+  allow_pyslang_warnings: true
+
+  # Structural out-of-scope detection (no manual patterns needed).
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1500
+  rtl_facts_hard_budget: 2400
+
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  use_hallucination_denylist: false
+  hallucination_denylist_dir: "indices/hallucinations"
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_llm_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_llm_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_llm_lint.json"

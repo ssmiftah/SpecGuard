@@ -1,0 +1,40 @@
+# NVDLA CACC — baseline (flat facts, no module scoping)
+# 13 modules, 2904 signals, single clock domain + SLCG
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 4096
+
+retrieval:
+  # CACC calculator is 610KB — default 8000-char chunks OOM the jina embedder.
+  # Keep chunks smaller than the embedder's quadratic-attention safe zone.
+  rtl_max_chunk_chars: 2000
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1500
+  rtl_facts_hard_budget: 2400
+
+  # Flat facts — no module scoping (baseline)
+  module_facts_mode: "off"
+
+  use_hallucination_denylist: false
+  hallucination_denylist_dir: "indices/hallucinations"
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_baseline_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_baseline_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_baseline_lint.json"

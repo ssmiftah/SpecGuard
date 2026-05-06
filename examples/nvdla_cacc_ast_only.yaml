@@ -1,0 +1,43 @@
+# NVDLA CACC — AST-only smoke test
+# No LLM, no RAG. Just RTL facts extraction + AST skeleton generation
+# + post-processors. Completes in seconds.
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  # ast_only=true means the model is never loaded — backend kept for
+  # consistency with non-ast_only configs.
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 2048
+
+agent:
+  use_ast_assertions: true
+  ast_only: true              # <-- skips LLM and RAG entirely
+
+  # CACC has non-fatal pyslang warnings (MissingTimeScale, PortDoesNotExist).
+  allow_pyslang_warnings: true
+
+  # Out-of-scope signal detection: structural (default), no YAML
+  # patterns needed. The pipeline analyzes the module hierarchy and
+  # auto-detects signals that only feed clock-gating / DFT / power sinks.
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1500
+  rtl_facts_hard_budget: 2400
+
+  # Module scoping doesn't affect output in ast_only mode (no LLM prompt),
+  # but it validates the scoping machinery runs without error on CACC.
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_ast_only_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_ast_only_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_ast_only_lint.json"

@@ -1,0 +1,49 @@
+# NVDLA CACC — Ablation A4: Remove deterministic repair
+# Phase 1 transforms (fix_bare_property_fragments, fix_immediate_*,
+# fix_double_negation, fix_*_cycle_on_*, etc.) are skipped. Failed
+# assertions then flow into the lint feedback loop and get sent to the
+# LLM for refinement instead of being fixed locally. Measures the token
+# cost of routing every fixable failure through the LLM.
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:35b-bf16"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 16384
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  allow_pyslang_warnings: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1000
+  rtl_facts_hard_budget: 1500
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  enable_deterministic_repair: false   # <-- ablation knob
+  # max_refinement_iterations stays at default 3 — failures DO get sent
+  # to the LLM. (See ablation_no_feedback for the "drop failures" version.)
+
+  use_hallucination_denylist: false
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_ablation_no_repair_qwen35b_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_ablation_no_repair_qwen35b_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_ablation_no_repair_qwen35b_lint.json"

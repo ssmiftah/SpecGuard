@@ -1,0 +1,38 @@
+# NVDLA CACC — Stage 3 module-scoped facts (depth=0, top module only)
+# Tight scoping: 128 signals from NV_NVDLA_cacc, Fix 6 submod comb list handles the rest
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 4096
+
+retrieval:
+  rtl_max_chunk_chars: 2000
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1500
+  rtl_facts_hard_budget: 2400
+
+  module_facts_mode: "lazy"
+  module_scope_depth: 0
+
+  use_hallucination_denylist: false
+  hallucination_denylist_dir: "indices/hallucinations"
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_depth0_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_depth0_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_depth0_lint.json"

@@ -1,0 +1,59 @@
+# NVDLA CACC — Full LLM pipeline (Ollama backend)
+#
+# Prerequisite: ollama serving qwen3:14b-32k (Modelfile with num_ctx 32768).
+# The Ollama server holds the model in its own memory budget, freeing
+# GPU VRAM for the jina embedder during RAG build and for activations
+# during generation.
+
+design:
+  rtl_dir: "./nvdla_cacc_test/rtl"
+  top_file: "NV_NVDLA_cacc.v"
+  top_module: "NV_NVDLA_cacc"
+  docs_dir: "./nvdla_cacc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 8192
+
+retrieval:
+  # CACC calculator is 610KB — smaller chunks to avoid jina embedder OOM.
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  # Reduce RAG top_k to shrink the LLM context per batch.
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  # CACC has non-fatal pyslang warnings (MissingTimeScale, PortDoesNotExist).
+  allow_pyslang_warnings: true
+
+  # Structural out-of-scope detection (default) catches SLCG/gated-clock/
+  # DFT signals automatically — no YAML patterns needed.
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 2500
+  rtl_facts_hard_budget: 4000
+
+  # Module-scoped facts for the LLM prompt (depth=2 recommended default).
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  use_hallucination_denylist: false
+
+security:
+  pass_enabled: true
+  threat_model: "./nvdla_cacc_test/docs/security_threats.md"
+  max_scenarios: 0
+
+output:
+  sva_file: "./nvdla_cacc_test/cacc_full_sva.sv"
+  log_file: "./nvdla_cacc_test/cacc_full_log.txt"
+  lint_report: "./nvdla_cacc_test/cacc_full_lint.json"

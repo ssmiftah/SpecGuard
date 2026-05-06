@@ -1,0 +1,45 @@
+# Coral NPU — FifoX + Slice (Chisel-emitted Verilog, Ollama backend)
+#
+# FifoX is a 4-way enqueue, 1-way dequeue FIFO from Google Coral NPU.
+# Emitted from Chisel 7.0.0-RC1 via CIRCT firtool.
+# FifoX instantiates a Slice output register stage (multi-module).
+#
+# Prerequisite: ollama serving qwen3:14b-32k (Modelfile with num_ctx 32768).
+
+design:
+  rtl_dir: "./coral_test/chisel_rtl"
+  top_module: "FifoX"
+  docs_dir: "./coral_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:35b-bf16"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 16384
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1000
+  rtl_facts_hard_budget: 1500
+
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+
+  use_hallucination_denylist: false
+
+output:
+  sva_file: "./coral_test/fifox_qwen35b_sva.sv"
+  log_file: "./coral_test/fifox_qwen35b_log.txt"
+  lint_report: "./coral_test/fifox_qwen35b_lint.json"
