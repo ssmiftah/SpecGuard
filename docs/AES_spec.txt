@@ -1,0 +1,121 @@
+AES (Advanced Encryption Standard) Design Specification
+========================================================
+Source: NIST FIPS 197, AES-Verilog implementation notes.
+
+OVERVIEW
+--------
+AES is a symmetric block cipher operating on 128-bit blocks.
+Key sizes: 128-bit (AES-128, 10 rounds), 192-bit (AES-192, 12 rounds),
+           256-bit (AES-256, 14 rounds).
+All key sizes produce a 128-bit ciphertext from a 128-bit plaintext.
+
+TOP-LEVEL MODULE: AES
+---------------------
+Ports:
+  enable  [1]     : input  — gates all output flags; when 0 all outputs are 0.
+  e128    [1]     : output — high when AES-128 encryption test passes.
+  d128    [1]     : output — high when AES-128 decryption test passes.
+  e192    [1]     : output — high when AES-192 encryption test passes.
+  d192    [1]     : output — high when AES-192 decryption test passes.
+  e256    [1]     : output — high when AES-256 encryption test passes.
+  d256    [1]     : output — high when AES-256 decryption test passes.
+
+The module instantiates AES_Encrypt (×3) and AES_Decrypt (×3) with the three
+key lengths and compares their outputs to known FIPS test vectors.
+
+FIPS TEST VECTORS
+-----------------
+Plaintext  : 128'h00112233_44556677_8899aabb_ccddeeff
+
+AES-128 key: 128'h00010203_04050607_08090a0b_0c0d0e0f
+AES-128 ct : 128'h69c4e0d8_6a7b0430_d8cdb780_70b4c55a
+
+AES-192 key: 192'h00010203_04050607_08090a0b_0c0d0e0f_10111213_14151617
+AES-192 ct : 128'hdda97ca4_864cdfe0_6eaf70a0_ec0d7191
+
+AES-256 key: 256'h00010203_04050607_08090a0b_0c0d0e0f_10111213_14151617_18191a1b_1c1d1e1f
+AES-256 ct : 128'h8ea2b7ca_516745bf_eafc4990_4b496089
+
+FUNCTIONAL REQUIREMENTS
+-----------------------
+1. When enable == 1:
+   - e128 must be 1 iff encrypted128 == 128'h69c4e0d86a7b0430d8cdb78070b4c55a
+   - e192 must be 1 iff encrypted192 == 128'hdda97ca4864cdfe06eaf70a0ec0d7191
+   - e256 must be 1 iff encrypted256 == 128'h8ea2b7ca516745bfeafc49904b496089
+   - d128 must be 1 iff decrypted128 == in (round-trip property)
+   - d192 must be 1 iff decrypted192 == in (round-trip property)
+   - d256 must be 1 iff decrypted256 == in (round-trip property)
+
+2. When enable == 0:
+   - All six output flags (e128, d128, e192, d192, e256, d256) must be 0.
+
+3. DATA WIDTH INVARIANT:
+   - All intermediate 128-bit state buses (after subBytes, shiftRows,
+     mixColumns, addRoundKey) must remain exactly 128 bits wide.
+
+ENCRYPTION DATAPATH: AES_Encrypt
+---------------------------------
+Parameters:
+  N  = key width in bits (128 / 192 / 256), default 128
+  Nr = number of rounds  (10 / 12 / 14),    default 10
+  Nk = number of 32-bit key words (4 / 6 / 8), default 4
+
+Ports:
+  in  [127:0] : input  — plaintext
+  key [N-1:0] : input  — encryption key
+  out [127:0] : output — ciphertext
+
+Internal structure (combinational pipeline):
+  1. keyExpansion  : produces fullkeys[128*(Nr+1)-1 : 0]
+  2. addRoundKey   : initial key whitening with the last 128 bits of fullkeys
+  3. encryptRound  (×Nr-1): mixColumns → shiftRows → subBytes → addRoundKey
+  4. Final round   : subBytes → shiftRows → addRoundKey (no mixColumns)
+  5. out = states[Nr]
+
+KEY SCHEDULE: keyExpansion
+--------------------------
+Parameters: Nk (key words), Nr (rounds)
+Ports:
+  key      [N-1:0]          : input
+  fullkeys [128*(Nr+1)-1:0] : output — expanded round keys
+
+The expanded key schedule must be exactly 128*(Nr+1) bits wide.
+For AES-128: 128*11 = 1408 bits.
+For AES-192: 128*13 = 1664 bits.
+For AES-256: 128*15 = 1920 bits.
+
+DECRYPTION DATAPATH: AES_Decrypt
+---------------------------------
+Mirror of AES_Encrypt using inverse operations:
+  inverseSubBytes, inverseShiftRows, inverseMixColumns.
+Produces plaintext from ciphertext using the same key.
+
+ROUND FUNCTION MODULES
+----------------------
+encryptRound  (in[127:0], roundkey[127:0], out[127:0]):
+  Applies mixColumns → shiftRows → subBytes → addRoundKey in sequence.
+  All intermediate buses are 128 bits wide.
+
+decryptRound  (in[127:0], roundkey[127:0], out[127:0]):
+  Applies inverseMixColumns → inverseShiftRows → inverseSubBytes → addRoundKey.
+
+subBytes / inverseSubBytes:
+  16-byte S-box substitution. Input and output both 128 bits.
+  Implemented via the sbox / inverseSbox lookup modules.
+
+shiftRows / inverseShiftRows:
+  Cyclic row shift of the 4×4 state matrix. Input = output = 128 bits.
+
+mixColumns / inverseMixColumns:
+  Column-wise GF(2^8) multiplication. Input = output = 128 bits.
+
+addRoundKey:
+  Bitwise XOR of state with round key. All operands 128 bits.
+
+DESIGN NOTES
+------------
+- The design is PURELY COMBINATIONAL (no clock or reset in encryption path).
+- Assertions must therefore be IMMEDIATE (assert) or use $sampled() for
+  combinational checks, not concurrent clocked assertions.
+- The enable signal is the only control input at the top level.
+- The design is tested with fixed FIPS inputs hardwired in AES.v.
