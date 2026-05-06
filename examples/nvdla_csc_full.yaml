@@ -1,0 +1,49 @@
+# NVDLA CSC — Full pipeline (baseline for ablation).
+# Top module: NV_NVDLA_csc
+# RTL dir:    ./nvdla_csc_test/rtl
+# See docs/ablation_findings_cacc.md for the ablation matrix rationale.
+
+design:
+  rtl_dir: "./nvdla_csc_test/rtl"
+  top_file: "NV_NVDLA_csc.v"
+  top_module: "NV_NVDLA_csc"
+  docs_dir: "./nvdla_csc_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 8192
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+  allow_pyslang_warnings: true
+
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 2500
+  rtl_facts_hard_budget: 4000
+  module_facts_mode: "lazy"
+  module_scope_depth: 2
+  enable_deterministic_repair: true
+
+  use_hallucination_denylist: false
+
+security:
+  pass_enabled: true
+  threat_model: "./nvdla_csc_test/docs/security_threats.md"
+  max_scenarios: 0
+
+output:
+  sva_file: "./nvdla_csc_test/csc_full_sva.sv"
+  log_file: "./nvdla_csc_test/csc_full_log.txt"
+  lint_report: "./nvdla_csc_test/csc_full_lint.json"

@@ -1,0 +1,54 @@
+# NVDLA CDP Multiplier Unit — Stage 3 module-scoped facts test (Ollama)
+#
+# This design has 19 modules, 311 signals, 61 name collisions, and 2
+# clock domains — the ideal test case for module scoping.
+#
+# A/B test:
+#   1. Baseline (flat facts):   module_facts_mode: "off"
+#   2. Lazy scoping:            module_facts_mode: "lazy"
+#   3. Full scoping:            module_facts_mode: "full"
+#
+# Run:
+#   bash abtest.sh
+
+design:
+  rtl_dir: "./nvdla_mul_test/rtl"
+  top_module: "NV_NVDLA_CDP_DP_MUL_unit"
+  docs_dir: "./nvdla_mul_test/docs"
+
+model:
+  backend: "openai"
+  id: "qwen3:14b-32k"
+  api_base: "http://localhost:11434/v1"
+  api_key: "ollama"
+  temperature: 0.1
+  max_new_tokens: 2048
+
+retrieval:
+  rtl_max_chunk_chars: 1500
+  encoder_batch_size: 8
+  rtl_top_k: 3
+  doc_top_k: 3
+
+agent:
+  use_ast_assertions: true
+  ast_only: false
+  use_dataflow_check: true
+
+  # Stage 2 — RTL facts (default ON)
+  use_rtl_facts: true
+  rtl_facts_soft_budget: 1500
+  rtl_facts_hard_budget: 2400
+
+  # Stage 3 — module scoping (the variable under test)
+  # Toggle between "off", "lazy", "full" for A/B comparison
+  module_facts_mode: "lazy"
+  module_scope_depth: 1    # 0=top only, 1=+submodules, -1=full hierarchy
+
+  use_hallucination_denylist: false
+  hallucination_denylist_dir: "indices/hallucinations"
+
+output:
+  sva_file: "./nvdla_mul_test/mul_stage3_sva.sv"
+  log_file: "./nvdla_mul_test/mul_stage3_log.txt"
+  lint_report: "./nvdla_mul_test/mul_stage3_lint.json"
