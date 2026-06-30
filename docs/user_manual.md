@@ -79,10 +79,10 @@ That's it — two fields. Everything else is auto-detected.
 ### Step 2: Run
 
 ```bash
-./run_pipeline.sh my_project.yaml
+./run.sh my_project.yaml
 ```
 
-Use `run_pipeline.sh` instead of `python main.py` — it monitors memory
+Use `run.sh` instead of `python main.py` — it monitors memory
 and captures the full log. This is important because the LLM uses
 significant GPU memory and can cause system instability if run inside
 an IDE terminal.
