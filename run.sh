@@ -48,6 +48,34 @@ echo "$SEP"
 echo ""
 
 # ---------------------------------------------------------------------------
+# VRAM monitor — polls nvidia-smi every 2 s in the background, records
+# per-GPU used memory (MiB) to a sidecar log; peak is reported at the end.
+# ---------------------------------------------------------------------------
+VRAMLOG="run_${BASENAME}_vram.log"
+VRAM_PID=""
+
+if command -v nvidia-smi &>/dev/null; then
+    # Write a header then append one timestamped sample every 2 seconds.
+    echo "timestamp,gpu,used_mib,total_mib" > "$VRAMLOG"
+    (
+        while true; do
+            nvidia-smi \
+                --query-gpu=index,memory.used,memory.total \
+                --format=csv,noheader,nounits \
+            | awk -v ts="$(date '+%H:%M:%S')" \
+                '{printf "%s,%s,%s,%s\n", ts, $1, $2, $3}' \
+            >> "$VRAMLOG"
+            sleep 2
+        done
+    ) &
+    VRAM_PID=$!
+    echo " VRAM log: $VRAMLOG  (monitor PID $VRAM_PID)"
+else
+    echo " (nvidia-smi not found — VRAM monitoring disabled)"
+fi
+echo ""
+
+# ---------------------------------------------------------------------------
 # Run — tee stdout to RUNLOG; stderr goes to terminal AND the same log
 # ---------------------------------------------------------------------------
 set +e
@@ -55,6 +83,11 @@ python -u main.py "$CONFIG" \
     2>&1 | tee "$RUNLOG"
 EXIT_CODE="${PIPESTATUS[0]}"
 set -e
+
+# Stop the VRAM monitor as soon as the pipeline exits.
+if [[ -n "$VRAM_PID" ]]; then
+    kill "$VRAM_PID" 2>/dev/null && wait "$VRAM_PID" 2>/dev/null || true
+fi
 
 # ---------------------------------------------------------------------------
 # Status
@@ -71,6 +104,22 @@ echo "$SEP"
 echo ""
 echo "--- Last 30 lines of $RUNLOG ---"
 tail -n 30 "$RUNLOG"
+
+# ---------------------------------------------------------------------------
+# VRAM summary — peak used MiB per GPU over the run
+# ---------------------------------------------------------------------------
+if [[ -f "$VRAMLOG" ]] && [[ "$(wc -l < "$VRAMLOG")" -gt 1 ]]; then
+    echo ""
+    echo "--- VRAM peak usage (from $VRAMLOG) ---"
+    # For each GPU index, find the maximum used_mib recorded.
+    awk -F',' 'NR>1 { gpu=$2; used=$3; total=$4
+                      gsub(/ /,"",gpu); gsub(/ /,"",used); gsub(/ /,"",total)
+                      if (used+0 > peak[gpu]+0) { peak[gpu]=used; tot[gpu]=total } }
+               END   { for (g in peak)
+                           printf "  GPU %s : %s / %s MiB (%.1f%%)\n",
+                               g, peak[g], tot[g], (peak[g]+0)/(tot[g]+0)*100 }' \
+        "$VRAMLOG" | sort
+fi
 
 # ---------------------------------------------------------------------------
 # Parse SVA output path from YAML and show assertion stats
